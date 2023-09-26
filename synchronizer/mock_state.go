@@ -229,6 +229,39 @@ func (_m *stateMock) GetBatchByNumber(ctx context.Context, batchNumber uint64, d
 	return r0, r1
 }
 
+// GetBatchL2BlobByNumber provides a mock function with given fields: ctx, batchNumber, dbTx
+func (_m *stateMock) GetBatchL2BlobByNumber(ctx context.Context, batchNumber uint64, dbTx pgx.Tx) (uint64, []byte, error) {
+	ret := _m.Called(ctx, batchNumber, dbTx)
+
+	var r0 uint64
+	var r1 []byte
+	var r2 error
+	if rf, ok := ret.Get(0).(func(context.Context, uint64, pgx.Tx) (uint64, []byte, error)); ok {
+		return rf(ctx, batchNumber, dbTx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, uint64, pgx.Tx) uint64); ok {
+		r0 = rf(ctx, batchNumber, dbTx)
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, uint64, pgx.Tx) []byte); ok {
+		r1 = rf(ctx, batchNumber, dbTx)
+	} else {
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).([]byte)
+		}
+	}
+
+	if rf, ok := ret.Get(2).(func(context.Context, uint64, pgx.Tx) error); ok {
+		r2 = rf(ctx, batchNumber, dbTx)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
+}
+
 // GetBatchL2DataByNumber provides a mock function with given fields: ctx, batchNumber, dbTx
 func (_m *stateMock) GetBatchL2DataByNumber(ctx context.Context, batchNumber uint64, dbTx pgx.Tx) ([]byte, error) {
 	ret := _m.Called(ctx, batchNumber, dbTx)

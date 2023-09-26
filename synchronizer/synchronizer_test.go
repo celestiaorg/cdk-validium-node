@@ -48,7 +48,7 @@ func Test_Given_PermissionlessNode_When_SyncronizeAgainSameBatch_Then_UseTheOneI
 	m.Etherman.
 		On("GetCurrentDataCommittee").
 		Return(&etherman.DataCommittee{}, nil)
-	sync_interface, err := NewSynchronizer(false, m.Etherman, m.State, m.Pool, m.EthTxManager, m.ZKEVMClient, nil, *genesis, *cfg, nil)
+	sync_interface, err := NewSynchronizer(false, m.Etherman, m.State, m.Pool, m.EthTxManager, m.ZKEVMClient, nil, *genesis, *cfg, nil, nil)
 	require.NoError(t, err)
 	sync, ok := sync_interface.(*ClientSynchronizer)
 	require.EqualValues(t, true, ok, "Can't convert to underlaying struct the interface of syncronizer")
@@ -74,7 +74,7 @@ func Test_Given_PermissionlessNode_When_SyncronizeFirstTimeABatch_Then_StoreItIn
 	m.Etherman.
 		On("GetCurrentDataCommittee").
 		Return(&etherman.DataCommittee{}, nil)
-	sync_interface, err := NewSynchronizer(false, m.Etherman, m.State, m.Pool, m.EthTxManager, m.ZKEVMClient, nil, *genesis, *cfg, nil)
+	sync_interface, err := NewSynchronizer(false, m.Etherman, m.State, m.Pool, m.EthTxManager, m.ZKEVMClient, nil, *genesis, *cfg, nil, nil)
 	require.NoError(t, err)
 	sync, ok := sync_interface.(*ClientSynchronizer)
 	require.EqualValues(t, true, ok, "Can't convert to underlaying struct the interface of syncronizer")
@@ -110,7 +110,7 @@ func TestForcedBatch(t *testing.T) {
 		On("GetCurrentDataCommittee").
 		Return(nil, nil)
 
-	sync, err := NewSynchronizer(false, m.Etherman, m.State, m.Pool, m.EthTxManager, m.ZKEVMClient, nil, genesis, cfg, m.DataCommitteeClientFactory)
+	sync, err := NewSynchronizer(false, m.Etherman, m.State, m.Pool, m.EthTxManager, m.ZKEVMClient, nil, genesis, cfg, m.DataCommitteeClientFactory, nil)
 	require.NoError(t, err)
 
 	// state preparation
@@ -363,7 +363,7 @@ func TestSequenceForcedBatch(t *testing.T) {
 		On("GetCurrentDataCommittee").
 		Return(nil, nil)
 
-	sync, err := NewSynchronizer(true, m.Etherman, m.State, m.Pool, m.EthTxManager, m.ZKEVMClient, nil, genesis, cfg, m.DataCommitteeClientFactory)
+	sync, err := NewSynchronizer(true, m.Etherman, m.State, m.Pool, m.EthTxManager, m.ZKEVMClient, nil, genesis, cfg, m.DataCommitteeClientFactory, nil)
 	require.NoError(t, err)
 
 	// state preparation

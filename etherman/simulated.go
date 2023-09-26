@@ -7,6 +7,7 @@ import (
 
 	"github.com/0xPolygon/cdk-validium-node/etherman/smartcontracts/cdkdatacommittee"
 	"github.com/0xPolygon/cdk-validium-node/etherman/smartcontracts/cdkvalidium"
+	"github.com/0xPolygon/cdk-validium-node/etherman/smartcontracts/icdkvalidium"
 	"github.com/0xPolygon/cdk-validium-node/etherman/smartcontracts/matic"
 	"github.com/0xPolygon/cdk-validium-node/etherman/smartcontracts/mockverifier"
 	"github.com/0xPolygon/cdk-validium-node/etherman/smartcontracts/polygonzkevmbridge"
@@ -129,10 +130,15 @@ func NewSimulatedEtherman(cfg Config, auth *bind.TransactOpts) (
 		return nil, nil, common.Address{}, nil, nil, err
 	}
 
+	ipoe, err := icdkvalidium.NewIcdkvalidium(poeAddr, client)
+	if err != nil {
+		return nil, nil, common.Address{}, nil, nil, err
+	}
+
 	client.Commit()
 	c := &Client{
 		EthClient:             client,
-		CDKValidium:           poe,
+		ICDKValidium:          ipoe,
 		Matic:                 maticContract,
 		GlobalExitRootManager: globalExitRoot,
 		DataCommittee:         da,

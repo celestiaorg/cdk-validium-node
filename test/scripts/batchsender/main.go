@@ -53,7 +53,7 @@ func main() {
 	batchsender := cli.NewApp()
 	batchsender.Name = "batchsender"
 	batchsender.Usage = "send batch transactions to L1"
-	batchsender.Description = `This tool allows to send a specified number of batch transactions to L1. 
+	batchsender.Description = `This tool allows to send a specified number of batch transactions to L1.
 Optionally it can wait for the batches to be validated.`
 	batchsender.DefaultCommand = "send"
 	batchsender.Flags = []cli.Flag{&flagSequences, &flagWait, &flagVerbose}
@@ -286,7 +286,7 @@ func sendBatches(cliCtx *cli.Context) error {
 						switch vLog.Topics[0] {
 						case etherman.SequencedBatchesSigHash():
 							if vLog.TxHash == tx.Hash() { // ignore other txs happening on L1
-								sb, err := ethMan.CDKValidium.ParseSequenceBatches(vLog)
+								sb, err := ethMan.ICDKValidium.ParseSequenceBatches(vLog)
 								if err != nil {
 									return err
 								}
@@ -299,7 +299,7 @@ func sendBatches(cliCtx *cli.Context) error {
 								}
 							}
 						case etherman.TrustedVerifyBatchesSigHash():
-							vb, err := ethMan.CDKValidium.ParseVerifyBatchesTrustedAggregator(vLog)
+							vb, err := ethMan.ICDKValidium.ParseVerifyBatchesTrustedAggregator(vLog)
 							if err != nil {
 								return err
 							}

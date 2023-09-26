@@ -9,6 +9,8 @@ gen() {
 }
 
 gen cdkvalidium
+gen cdkcelestium
+gen icdkvalidium
 gen polygonzkevmbridge
 gen matic
 gen mockverifier

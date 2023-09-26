@@ -13,3 +13,10 @@ type Config struct {
 	// TrustedSequencerURL is the rpc url to connect and sync the trusted state
 	TrustedSequencerURL string `mapstructure:"TrustedSequencerURL"`
 }
+
+type CelestiaConfig struct {
+	Enable      bool   `mapstructure:"Enable"`
+	Rpc         string `mapstructure:"Rpc"`
+	NamespaceId string `mapstructure:"NamespaceId"`
+	AuthToken   string `mapstructure:"AuthToken"`
+}

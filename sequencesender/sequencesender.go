@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/0xPolygon/cdk-validium-node/celestia"
 	"github.com/0xPolygon/cdk-validium-node/etherman/types"
 	"github.com/0xPolygon/cdk-validium-node/ethtxmanager"
 	"github.com/0xPolygon/cdk-validium-node/event"
@@ -37,10 +38,27 @@ type SequenceSender struct {
 	ethTxManager ethTxManager
 	etherman     etherman
 	eventLog     *event.EventLog
+	celestiaDA   *celestia.CelestiaDA
 }
 
 // New inits sequence sender
-func New(cfg Config, state stateInterface, etherman etherman, manager ethTxManager, eventLog *event.EventLog, privKey *ecdsa.PrivateKey) (*SequenceSender, error) {
+func New(cfg Config, state stateInterface, etherman etherman, manager ethTxManager, eventLog *event.EventLog, privKey *ecdsa.PrivateKey, celestiaCfg *celestia.CelestiaConfig) (*SequenceSender, error) {
+
+	if celestiaCfg.Enable {
+		celestiaDa, err := celestia.NewCelestiaDA(*celestiaCfg)
+		if err != nil {
+			return nil, err
+		}
+		return &SequenceSender{
+			cfg:          cfg,
+			state:        state,
+			etherman:     etherman,
+			ethTxManager: manager,
+			eventLog:     eventLog,
+			privKey:      privKey,
+			celestiaDA:   celestiaDa,
+		}, nil
+	}
 	return &SequenceSender{
 		cfg:          cfg,
 		state:        state,
@@ -48,6 +66,7 @@ func New(cfg Config, state stateInterface, etherman etherman, manager ethTxManag
 		ethTxManager: manager,
 		eventLog:     eventLog,
 		privKey:      privKey,
+		celestiaDA:   nil,
 	}, nil
 }
 
@@ -108,18 +127,30 @@ func (s *SequenceSender) tryToSendSequence(ctx context.Context, ticker *time.Tic
 	)
 	metrics.SequencesSentToL1(float64(sequenceCount))
 
-	// add sequence to be monitored
-	signaturesAndAddrs, err := s.getSignaturesAndAddrsFromDataCommittee(ctx, sequences)
-	if err != nil {
-		log.Error("error getting signatures and addresses from the data committee: ", err)
-		return
+	var to *common.Address
+	var signaturesAndAddrs []byte
+	if s.celestiaDA.Cfg.Enable {
+		// Store the data on Celestia
+		err := s.submitCelestiaBlob(ctx, sequences)
+		if err != nil {
+			log.Error("error submitting data to Celestia: ", err)
+			return
+		}
+	} else {
+		// add sequence to be monitored
+		signaturesAndAddrs, err = s.getSignaturesAndAddrsFromDataCommittee(ctx, sequences)
+		if err != nil {
+			log.Error("error getting signatures and addresses from the data committee: ", err)
+			return
+		}
 	}
 	to, data, err := s.etherman.BuildSequenceBatchesTxData(s.cfg.SenderAddress, sequences, s.cfg.L2Coinbase, signaturesAndAddrs)
 	log.Warnf("to %s, data: %s", to, common.Bytes2Hex(data))
 	if err != nil {
-		log.Error("error estimating new sequenceBatches to add to eth tx manager: ", err)
+		log.Error("error estimating new validium sequenceBatches to add to eth tx manager: ", err)
 		return
 	}
+
 	firstSequence := sequences[0]
 	lastSequence := sequences[len(sequences)-1]
 	monitoredTxID := fmt.Sprintf(monitoredIDFormat, firstSequence.BatchNumber, lastSequence.BatchNumber)

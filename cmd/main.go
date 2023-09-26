@@ -92,6 +92,24 @@ var (
 		Usage:    fmt.Sprintf("Indicate the type of file to generate json-schema: %v,%v ", NODE_CONFIGFILE, NETWORK_CONFIGFILE),
 		Required: true,
 	}
+	daRpcFlag = cli.StringSliceFlag{
+		Name:     config.FlagDaRPC,
+		Aliases:  []string{"da"},
+		Usage:    "RPC to use for DA",
+		Required: false,
+	}
+	namespaceIdFlag = cli.StringSliceFlag{
+		Name:     config.FlagNamespaceId,
+		Aliases:  []string{"ns"},
+		Usage:    "NamespaceId to use for Celestia",
+		Required: false,
+	}
+	authTokenFlag = cli.StringSliceFlag{
+		Name:     config.FlagAuthToken,
+		Aliases:  []string{"token"},
+		Usage:    "Auth token to user for Celestia",
+		Required: false,
+	}
 )
 
 func main() {
@@ -103,6 +121,9 @@ func main() {
 		&yesFlag,
 		&componentsFlag,
 		&httpAPIFlag,
+		&daRpcFlag,
+		&namespaceIdFlag,
+		&authTokenFlag,
 	}
 	app.Commands = []*cli.Command{
 		{

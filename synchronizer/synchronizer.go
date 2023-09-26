@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/0xPolygon/cdk-data-availability/client"
+	"github.com/0xPolygon/cdk-validium-node/celestia"
 	"github.com/0xPolygon/cdk-validium-node/etherman"
 	"github.com/0xPolygon/cdk-validium-node/event"
 	"github.com/0xPolygon/cdk-validium-node/hex"
@@ -62,6 +63,7 @@ type ClientSynchronizer struct {
 	committeeMembers           []etherman.DataCommitteeMember
 	selectedCommitteeMember    int
 	dataCommitteeClientFactory client.ClientFactoryInterface
+	celestiaDA                 *celestia.CelestiaDA
 }
 
 // NewSynchronizer creates and initializes an instance of Synchronizer
@@ -76,10 +78,31 @@ func NewSynchronizer(
 	genesis state.Genesis,
 	cfg Config,
 	clientFactory client.ClientFactoryInterface,
+	celestiaCfg *celestia.CelestiaConfig,
 ) (Synchronizer, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	metrics.Register()
 
+	if celestiaCfg.Enable {
+		celestiaDa, err := celestia.NewCelestiaDA(*celestiaCfg)
+		return &ClientSynchronizer{
+			isTrustedSequencer:         isTrustedSequencer,
+			state:                      st,
+			etherMan:                   ethMan,
+			pool:                       pool,
+			ctx:                        ctx,
+			cancelCtx:                  cancel,
+			ethTxManager:               ethTxManager,
+			zkEVMClient:                zkEVMClient,
+			eventLog:                   eventLog,
+			genesis:                    genesis,
+			cfg:                        cfg,
+			proverID:                   "",
+			previousExecutorFlushID:    0,
+			dataCommitteeClientFactory: clientFactory,
+			celestiaDA:                 celestiaDa,
+		}, err
+	}
 	c := &ClientSynchronizer{
 		isTrustedSequencer:         isTrustedSequencer,
 		state:                      st,
@@ -95,6 +118,7 @@ func NewSynchronizer(
 		proverID:                   "",
 		previousExecutorFlushID:    0,
 		dataCommitteeClientFactory: clientFactory,
+		celestiaDA:                 nil,
 	}
 	err := c.loadCommittee()
 	return c, err
@@ -296,6 +320,7 @@ func (s *ClientSynchronizer) syncBlocks(lastEthBlockSynced *state.Block) (*state
 	// Call the blockchain to retrieve data
 	header, err := s.etherMan.HeaderByNumber(s.ctx, nil)
 	if err != nil {
+		log.Errorf("error calling the blockchain to retrieve data: ", err)
 		return lastEthBlockSynced, err
 	}
 	lastKnownBlock := header.Number
@@ -318,12 +343,14 @@ func (s *ClientSynchronizer) syncBlocks(lastEthBlockSynced *state.Block) (*state
 		blocks, order, err := s.etherMan.GetRollupInfoByBlockRange(s.ctx, fromBlock, &toBlock)
 		metrics.ReadL1DataTime(time.Since(start))
 		if err != nil {
+			log.Errorf("error getting rollup info by block range: ", err)
 			return lastEthBlockSynced, err
 		}
 		start = time.Now()
 		err = s.processBlockRange(blocks, order)
 		metrics.ProcessL1DataTime(time.Since(start))
 		if err != nil {
+			log.Errorf("error processing block range: ", err)
 			return lastEthBlockSynced, err
 		}
 		if len(blocks) > 0 {
@@ -347,6 +374,7 @@ func (s *ClientSynchronizer) syncBlocks(lastEthBlockSynced *state.Block) (*state
 			// Store the latest block of the block range. Get block info and process the block
 			fb, err := s.etherMan.EthBlockByNumber(s.ctx, toBlock)
 			if err != nil {
+				log.Errorf("error getting Eth block by number: ", err)
 				return lastEthBlockSynced, err
 			}
 			b := etherman.Block{
@@ -357,6 +385,7 @@ func (s *ClientSynchronizer) syncBlocks(lastEthBlockSynced *state.Block) (*state
 			}
 			err = s.processBlockRange([]etherman.Block{b}, order)
 			if err != nil {
+				log.Errorf("error processing block range for len(blocks) == 0: ", err)
 				return lastEthBlockSynced, err
 			}
 			block := state.Block{
@@ -481,31 +510,37 @@ func (s *ClientSynchronizer) processBlockRange(blocks []etherman.Block, order ma
 		for _, element := range order[blocks[i].BlockHash] {
 			switch element.Name {
 			case etherman.SequenceBatchesOrder:
+				log.Info("Processing SequenceBatchesOrder")
 				err = s.processSequenceBatches(blocks[i].SequencedBatches[element.Pos], blocks[i].BlockNumber, dbTx)
 				if err != nil {
 					return err
 				}
 			case etherman.ForcedBatchesOrder:
+				log.Info("Processing ForcedBatchesOrder")
 				err = s.processForcedBatch(blocks[i].ForcedBatches[element.Pos], dbTx)
 				if err != nil {
 					return err
 				}
 			case etherman.GlobalExitRootsOrder:
+				log.Info("Processing GlobalExitRootsOrder")
 				err = s.processGlobalExitRoot(blocks[i].GlobalExitRoots[element.Pos], dbTx)
 				if err != nil {
 					return err
 				}
 			case etherman.SequenceForceBatchesOrder:
+				log.Info("Processing SequenceForceBatchesOrder")
 				err = s.processSequenceForceBatch(blocks[i].SequencedForceBatches[element.Pos], blocks[i], dbTx)
 				if err != nil {
 					return err
 				}
 			case etherman.TrustedVerifyBatchOrder:
+				log.Info("Processing TrustedVerifyBatchOrder")
 				err = s.processTrustedVerifyBatches(blocks[i].VerifiedBatches[element.Pos], dbTx)
 				if err != nil {
 					return err
 				}
 			case etherman.ForkIDsOrder:
+				log.Info("Processing ForkIDsOrder")
 				err = s.processForkID(blocks[i].ForkIDs[element.Pos], blocks[i].BlockNumber, dbTx)
 				if err != nil {
 					return err
@@ -790,8 +825,23 @@ func (s *ClientSynchronizer) processSequenceBatches(sequencedBatches []etherman.
 		log.Warn("Empty sequencedBatches array detected, ignoring...")
 		return nil
 	}
+	// Get all the batch datas from here
 	for _, sbatch := range sequencedBatches {
-		batchL2Data, err := s.getBatchL2Data(sbatch.BatchNumber, sbatch.TransactionsHash)
+		var batchL2Data []byte
+		var err error
+		if s.celestiaDA.Cfg.Enable {
+			height, commitment, err := s.state.GetBatchL2BlobByNumber(s.ctx, sbatch.BatchNumber, nil)
+			if err == nil {
+				batchL2Data, err = s.getBlobData(height, commitment)
+				if err != nil {
+					log.Error("Error when attempting to retrieve data from Celestia: ", err)
+					return err
+				}
+			}
+			log.Info("Celestia BatchL2Data: ", batchL2Data)
+		} else {
+			batchL2Data, err = s.getBatchL2Data(sbatch.BatchNumber, sbatch.TransactionsHash)
+		}
 		if err != nil {
 			return err
 		}

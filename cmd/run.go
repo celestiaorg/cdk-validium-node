@@ -14,6 +14,7 @@ import (
 	dataCommitteeClient "github.com/0xPolygon/cdk-data-availability/client"
 	zkevm "github.com/0xPolygon/cdk-validium-node"
 	"github.com/0xPolygon/cdk-validium-node/aggregator"
+	"github.com/0xPolygon/cdk-validium-node/celestia"
 	"github.com/0xPolygon/cdk-validium-node/config"
 	"github.com/0xPolygon/cdk-validium-node/db"
 	"github.com/0xPolygon/cdk-validium-node/etherman"
@@ -58,6 +59,19 @@ func start(cliCtx *cli.Context) error {
 	}
 	components := cliCtx.StringSlice(config.FlagComponents)
 
+	daRpc := cliCtx.StringSlice(config.FlagDaRPC)
+	var celestiaCfg celestia.CelestiaConfig
+	if len(daRpc) != 0 {
+		daRpc := cliCtx.StringSlice(config.FlagDaRPC)[0]
+		namespaceId := cliCtx.StringSlice(config.FlagNamespaceId)[0]
+		authToken := cliCtx.StringSlice(config.FlagAuthToken)[0]
+		celestiaCfg = celestia.CelestiaConfig{
+			Enable:      true,
+			Rpc:         daRpc,
+			NamespaceId: namespaceId,
+			AuthToken:   authToken,
+		}
+	}
 	// Only runs migration if the component is the synchronizer and if the flag is deactivated
 	if !cliCtx.Bool(config.FlagMigrations) {
 		for _, comp := range components {
@@ -185,7 +199,7 @@ func start(cliCtx *cli.Context) error {
 			if poolInstance == nil {
 				poolInstance = createPool(c.Pool, l2ChainID, st, eventLog)
 			}
-			seqSender := createSequenceSender(*c, poolInstance, ethTxManagerStorage, st, eventLog)
+			seqSender := createSequenceSender(*c, poolInstance, ethTxManagerStorage, st, eventLog, &celestiaCfg)
 			go seqSender.Start(ctx)
 		case RPC:
 			ev.Component = event.Component_RPC
@@ -216,7 +230,7 @@ func start(cliCtx *cli.Context) error {
 			if poolInstance == nil {
 				poolInstance = createPool(c.Pool, l2ChainID, st, eventLog)
 			}
-			go runSynchronizer(*c, etherman, etm, st, poolInstance, eventLog)
+			go runSynchronizer(*c, etherman, etm, st, poolInstance, eventLog, &celestiaCfg)
 		case ETHTXMANAGER:
 			ev.Component = event.Component_EthTxManager
 			ev.Description = "Running eth tx manager service"
@@ -284,7 +298,7 @@ func newEtherman(c config.Config) (*etherman.Client, error) {
 	return etherman, nil
 }
 
-func runSynchronizer(cfg config.Config, etherman *etherman.Client, ethTxManager *ethtxmanager.Client, st *state.State, pool *pool.Pool, eventLog *event.EventLog) {
+func runSynchronizer(cfg config.Config, etherman *etherman.Client, ethTxManager *ethtxmanager.Client, st *state.State, pool *pool.Pool, eventLog *event.EventLog, celestiaCfg *celestia.CelestiaConfig) {
 	var trustedSequencerURL string
 	var err error
 	if !cfg.IsTrustedSequencer {
@@ -305,6 +319,7 @@ func runSynchronizer(cfg config.Config, etherman *etherman.Client, ethTxManager 
 		cfg.IsTrustedSequencer, etherman, st, pool, ethTxManager,
 		zkEVMClient, eventLog, cfg.NetworkConfig.Genesis, cfg.Synchronizer,
 		&dataCommitteeClient.ClientFactory{},
+		celestiaCfg,
 	)
 	if err != nil {
 		log.Fatal(err)
@@ -392,7 +407,7 @@ func createSequencer(cfg config.Config, pool *pool.Pool, etmStorage *ethtxmanage
 	return seq
 }
 
-func createSequenceSender(cfg config.Config, pool *pool.Pool, etmStorage *ethtxmanager.PostgresStorage, st *state.State, eventLog *event.EventLog) *sequencesender.SequenceSender {
+func createSequenceSender(cfg config.Config, pool *pool.Pool, etmStorage *ethtxmanager.PostgresStorage, st *state.State, eventLog *event.EventLog, celestiaCfg *celestia.CelestiaConfig) *sequencesender.SequenceSender {
 	etherman, err := newEtherman(cfg)
 	if err != nil {
 		log.Fatal(err)
@@ -408,7 +423,7 @@ func createSequenceSender(cfg config.Config, pool *pool.Pool, etmStorage *ethtxm
 
 	ethTxManager := ethtxmanager.New(cfg.EthTxManager, etherman, etmStorage, st)
 
-	seqSender, err := sequencesender.New(cfg.SequenceSender, st, etherman, ethTxManager, eventLog, pk)
+	seqSender, err := sequencesender.New(cfg.SequenceSender, st, etherman, ethTxManager, eventLog, pk, celestiaCfg)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -57,13 +57,33 @@ func (s *PostgresStorage) Add(ctx context.Context, mTx monitoredTx, dbTx pgx.Tx)
 	return nil
 }
 
+// Add persist a monitored tx
+func (s *PostgresStorage) AddCommitment(ctx context.Context, batchNum uint64, celestiaHeight uint64, commitment []byte, dbTx pgx.Tx) error {
+	conn := s.dbConn(dbTx)
+	cmd := `
+        INSERT INTO state.blobs (batch_num, height, commitment)
+                                 VALUES (   $1, $2,        $3)`
+
+	_, err := conn.Exec(ctx, cmd, batchNum, celestiaHeight, commitment)
+
+	if err != nil {
+		if pgErr, ok := err.(*pgconn.PgError); ok && pgErr.ConstraintName == "blobs_pkey" {
+			return ErrAlreadyExists
+		} else {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // Get loads a persisted monitored tx
 func (s *PostgresStorage) Get(ctx context.Context, owner, id string, dbTx pgx.Tx) (monitoredTx, error) {
 	conn := s.dbConn(dbTx)
 	cmd := `
         SELECT owner, id, from_addr, to_addr, nonce, value, data, gas, gas_price, status, block_num, history, created_at, updated_at
           FROM state.monitored_txs
-         WHERE owner = $1 
+         WHERE owner = $1
            AND id = $2`
 
 	mTx := monitoredTx{}

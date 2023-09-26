@@ -119,6 +119,22 @@ func (c *Client) Add(ctx context.Context, owner, id string, from common.Address,
 	return nil
 }
 
+func (c *Client) AddCommitment(ctx context.Context, batchNum uint64, celestiaHeight uint64, commitment []byte, dbTx pgx.Tx) error {
+
+	// add to storage
+	err := c.storage.AddCommitment(ctx, batchNum, celestiaHeight, commitment, dbTx)
+	if err != nil {
+		err := fmt.Errorf("failed to add tx to get monitored: %w", err)
+		log.Errorf(err.Error())
+		return err
+	}
+
+	mTxLog := log.WithFields("batchNum", batchNum, "celestiaHeight", celestiaHeight)
+	mTxLog.Infof("stored commitments")
+
+	return nil
+}
+
 // ResultsByStatus returns all the results for all the monitored txs related to the owner and matching the provided statuses
 // if the statuses are empty, all the statuses are considered.
 //

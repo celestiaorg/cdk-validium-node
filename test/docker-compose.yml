@@ -2,8 +2,21 @@ version: "3.5"
 networks:
   default:
     name: cdk-validium
-    
+
 services:
+  da:
+    platform: linux/x86_64
+    image: "ghcr.io/rollkit/local-celestia-devnet:v0.11.0-rc8"
+    ports:
+      - "26657:26657"
+      - "26658:26658"
+      - "26659:26659"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:26659/header/1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
   grafana:
     container_name: grafana
     image: grafana/grafana-oss
@@ -77,7 +90,7 @@ services:
     command:
       - "/bin/sh"
       - "-c"
-      - "/app/cdk-validium-node run --network custom --custom-network-file /app/genesis.json --cfg /app/config.toml --components sequence-sender"
+      - "/app/cdk-validium-node run --network custom --custom-network-file /app/genesis.json --cfg /app/config.toml --components sequence-sender --da-rpc=http://da:26658 --namespace-id=000008e5f679bf7116cb --auth-token=$CELESTIA_NODE_AUTH_TOKEN"
 
   cdk-validium-json-rpc:
     container_name: cdk-validium-json-rpc
@@ -125,7 +138,7 @@ services:
     command:
       - "/bin/sh"
       - "-c"
-      - "/app/cdk-validium-node run --network custom --custom-network-file /app/genesis.json --cfg /app/config.toml --components synchronizer"
+      - "/app/cdk-validium-node run --network custom --custom-network-file /app/genesis.json --cfg /app/config.toml --components synchronizer --da-rpc=http://da:26658 --namespace-id=000008e5f679bf7116cb --auth-token=$CELESTIA_NODE_AUTH_TOKEN"
 
   cdk-validium-eth-tx-manager:
     container_name: cdk-validium-eth-tx-manager
@@ -308,7 +321,7 @@ services:
 
   cdk-validium-mock-l1-network:
     container_name: cdk-validium-mock-l1-network
-    image: hermeznetwork/geth-cdk-validium-contracts:v0.0.1
+    image: hermeznetwork/geth-cdk-validium-contracts:latest
     ports:
       - 8545:8545
       - 8546:8546
@@ -499,7 +512,7 @@ services:
   cdk-validium-sh:
     container_name: zkevm-sh
     image: cdk-validium-node
-    stdin_open: true 
+    stdin_open: true
     tty: true
     environment:
       - CDK_VALIDIUM_NODE_STATEDB_HOST=supernets-state-db

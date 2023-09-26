@@ -445,7 +445,7 @@ func (p *PostgresStorage) GetLastNBatchesByL2BlockNumber(ctx context.Context, l2
                                                           WHERE l2b.block_num = $1))
                /* OR if $1 is null, this means we want to get the most updated information from state, so it considers all the batches.
                 * this is generally used by estimate gas, process unsigned transactions and it is required by claim transactions to add
-                * the open batch to the result and get the most updated globalExitRoot synced from L1 and stored in the current open batch when 
+                * the open batch to the result and get the most updated globalExitRoot synced from L1 and stored in the current open batch when
                 * there was not transactions yet to create a l2 block with it */
             OR $1 IS NULL
          ORDER BY b.batch_num DESC
@@ -569,7 +569,7 @@ func (p *PostgresStorage) SetInitSyncBatch(ctx context.Context, batchNumber uint
 func (p *PostgresStorage) GetBatchByNumber(ctx context.Context, batchNumber uint64, dbTx pgx.Tx) (*Batch, error) {
 	const getBatchByNumberSQL = `
 		SELECT batch_num, global_exit_root, local_exit_root, acc_input_hash, state_root, timestamp, coinbase, raw_txs_data, forced_batch_num
-		  FROM state.batch 
+		  FROM state.batch
 		 WHERE batch_num = $1`
 
 	e := p.getExecQuerier(dbTx)
@@ -600,11 +600,27 @@ func (p *PostgresStorage) GetBatchL2DataByNumber(ctx context.Context, batchNumbe
 	return batchL2Data, nil
 }
 
+// GetBatchL2BlobByNumber returns the batch L2 celestia blobs of the given batch number.
+func (p *PostgresStorage) GetBatchL2BlobByNumber(ctx context.Context, batchNumber uint64, dbTx pgx.Tx) (uint64, []byte, error) {
+	getBatchL2BlobByBatchNumber := "SELECT height, commitment FROM state.blobs WHERE batch_num = $1"
+	q := p.getExecQuerier(dbTx)
+	var batchL2Blob []byte
+	var height uint64
+	err := q.QueryRow(ctx, getBatchL2BlobByBatchNumber, batchNumber).Scan(&height, &batchL2Blob)
+
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, nil, ErrNotFound
+	} else if err != nil {
+		return 0, nil, err
+	}
+	return height, batchL2Blob, nil
+}
+
 // GetBatchByTxHash returns the batch including the given tx
 func (p *PostgresStorage) GetBatchByTxHash(ctx context.Context, transactionHash common.Hash, dbTx pgx.Tx) (*Batch, error) {
 	const getBatchByTxHashSQL = `
 		SELECT b.batch_num, b.global_exit_root, b.local_exit_root, b.acc_input_hash, b.state_root, b.timestamp, b.coinbase, b.raw_txs_data, b.forced_batch_num
-		  FROM state.transaction t, state.batch b, state.l2block l 
+		  FROM state.transaction t, state.batch b, state.l2block l
 		  WHERE t.hash = $1 AND l.block_num = t.l2_block_num AND b.batch_num = l.batch_num`
 
 	e := p.getExecQuerier(dbTx)
@@ -995,7 +1011,7 @@ func (p *PostgresStorage) openBatch(ctx context.Context, batchContext Processing
 }
 
 func (p *PostgresStorage) closeBatch(ctx context.Context, receipt ProcessingReceipt, dbTx pgx.Tx) error {
-	const closeBatchSQL = `UPDATE state.batch 
+	const closeBatchSQL = `UPDATE state.batch
 		SET state_root = $1, local_exit_root = $2, acc_input_hash = $3, raw_txs_data = $4, batch_resources = $5, closing_reason = $6
 		  WHERE batch_num = $7`
 
@@ -1037,7 +1053,7 @@ func (p *PostgresStorage) UpdateGERInOpenBatch(ctx context.Context, ger common.H
 	}
 
 	const updateGER = `
-			UPDATE 
+			UPDATE
     			state.batch
 			SET global_exit_root = $1, timestamp = $2
 			WHERE batch_num = $3
@@ -1059,7 +1075,7 @@ func (p *PostgresStorage) IsBatchClosed(ctx context.Context, batchNum uint64, db
 // GetNextForcedBatches gets the next forced batches from the queue.
 func (p *PostgresStorage) GetNextForcedBatches(ctx context.Context, nextForcedBatches int, dbTx pgx.Tx) ([]ForcedBatch, error) {
 	const getNextForcedBatchesSQL = `
-		SELECT forced_batch_num, global_exit_root, timestamp, raw_txs_data, coinbase, block_num 
+		SELECT forced_batch_num, global_exit_root, timestamp, raw_txs_data, coinbase, block_num
 		FROM state.forced_batch
 		WHERE forced_batch_num > (Select coalesce(max(forced_batch_num),0) as forced_batch_num from state.batch INNER JOIN state.virtual_batch ON state.virtual_batch.batch_num = state.batch.batch_num)
 		ORDER BY forced_batch_num ASC LIMIT $1;
@@ -1201,7 +1217,7 @@ func (p *PostgresStorage) GetTransactionReceipt(ctx context.Context, transaction
 	var effective_gas_price *uint64
 
 	const getReceiptSQL = `
-		SELECT 
+		SELECT
 			r.tx_index,
 			r.tx_hash,
 		    r.type,
@@ -1348,7 +1364,7 @@ func (p *PostgresStorage) getTransactionLogs(ctx context.Context, transactionHas
 	SELECT t.l2_block_num, b.block_hash, l.tx_hash, l.log_index, l.address, l.data, l.topic0, l.topic1, l.topic2, l.topic3
 	FROM state.log l
 	INNER JOIN state.transaction t ON t.hash = l.tx_hash
-	INNER JOIN state.l2block b ON b.block_num = t.l2_block_num 
+	INNER JOIN state.l2block b ON b.block_num = t.l2_block_num
 	WHERE t.hash = $1
 	ORDER BY l.log_index ASC`
 	rows, err := q.Query(ctx, getTransactionLogsSQL, transactionHash.String())
@@ -2089,7 +2105,7 @@ func (p *PostgresStorage) GetVirtualBatchToProve(ctx context.Context, lastVerfie
 		WHERE
 			b.batch_num > $1 AND b.batch_num = v.batch_num AND
 			NOT EXISTS (
-				SELECT p.batch_num FROM state.proof p 
+				SELECT p.batch_num FROM state.proof p
 				WHERE v.batch_num >= p.batch_num AND v.batch_num <= p.batch_num_final
 			)
 		ORDER BY b.batch_num ASC LIMIT 1
@@ -2123,8 +2139,8 @@ func (p *PostgresStorage) CheckProofContainsCompleteSequences(ctx context.Contex
 // GetProofReadyToVerify return the proof that is ready to verify
 func (p *PostgresStorage) GetProofReadyToVerify(ctx context.Context, lastVerfiedBatchNumber uint64, dbTx pgx.Tx) (*Proof, error) {
 	const getProofReadyToVerifySQL = `
-		SELECT 
-			p.batch_num, 
+		SELECT
+			p.batch_num,
 			p.batch_num_final,
 			p.proof,
 			p.proof_id,
@@ -2137,7 +2153,7 @@ func (p *PostgresStorage) GetProofReadyToVerify(ctx context.Context, lastVerfied
 		FROM state.proof p
 		WHERE batch_num = $1 AND generating_since IS NULL AND
 			EXISTS (SELECT 1 FROM state.sequences s1 WHERE s1.from_batch_num = p.batch_num) AND
-			EXISTS (SELECT 1 FROM state.sequences s2 WHERE s2.to_batch_num = p.batch_num_final)		
+			EXISTS (SELECT 1 FROM state.sequences s2 WHERE s2.to_batch_num = p.batch_num_final)
 		`
 
 	var proof *Proof = &Proof{}
@@ -2164,29 +2180,29 @@ func (p *PostgresStorage) GetProofsToAggregate(ctx context.Context, dbTx pgx.Tx)
 
 	// TODO: add comments to explain the query
 	const getProofsToAggregateSQL = `
-		SELECT 
-			p1.batch_num as p1_batch_num, 
-			p1.batch_num_final as p1_batch_num_final, 
-			p1.proof as p1_proof,	
-			p1.proof_id as p1_proof_id, 
-			p1.input_prover as p1_input_prover, 
+		SELECT
+			p1.batch_num as p1_batch_num,
+			p1.batch_num_final as p1_batch_num_final,
+			p1.proof as p1_proof,
+			p1.proof_id as p1_proof_id,
+			p1.input_prover as p1_input_prover,
 			p1.prover as p1_prover,
 			p1.prover_id as p1_prover_id,
 			p1.generating_since as p1_generating_since,
 			p1.created_at as p1_created_at,
 			p1.updated_at as p1_updated_at,
-			p2.batch_num as p2_batch_num, 
-			p2.batch_num_final as p2_batch_num_final, 
-			p2.proof as p2_proof,	
-			p2.proof_id as p2_proof_id, 
-			p2.input_prover as p2_input_prover, 
+			p2.batch_num as p2_batch_num,
+			p2.batch_num_final as p2_batch_num_final,
+			p2.proof as p2_proof,
+			p2.proof_id as p2_proof_id,
+			p2.input_prover as p2_input_prover,
 			p2.prover as p2_prover,
 			p2.prover_id as p2_prover_id,
 			p2.generating_since as p2_generating_since,
 			p2.created_at as p2_created_at,
 			p2.updated_at as p2_updated_at
 		FROM state.proof p1 INNER JOIN state.proof p2 ON p1.batch_num_final = p2.batch_num - 1
-		WHERE p1.generating_since IS NULL AND p2.generating_since IS NULL AND 
+		WHERE p1.generating_since IS NULL AND p2.generating_since IS NULL AND
 		 	  p1.proof IS NOT NULL AND p2.proof IS NOT NULL AND
 			  (
 					EXISTS (

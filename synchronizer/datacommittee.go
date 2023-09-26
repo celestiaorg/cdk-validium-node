@@ -55,6 +55,8 @@ func (s *ClientSynchronizer) getBatchL2Data(batchNum uint64, expectedTransaction
 			}
 		}
 
+		// TODO (Diego) make a similar modification to have it retrieve data from Celestia
+
 		log.Info("trying to get data from data committee node")
 		data, err := s.getDataFromCommittee(batchNum, expectedTransactionsHash)
 		if err != nil {

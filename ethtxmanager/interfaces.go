@@ -26,6 +26,7 @@ type ethermanInterface interface {
 
 type storageInterface interface {
 	Add(ctx context.Context, mTx monitoredTx, dbTx pgx.Tx) error
+	AddCommitment(ctx context.Context, batchNum uint64, celestiaHeight uint64, commitment []byte, dbTx pgx.Tx) error
 	Get(ctx context.Context, owner, id string, dbTx pgx.Tx) (monitoredTx, error)
 	GetByStatus(ctx context.Context, owner *string, statuses []MonitoredTxStatus, dbTx pgx.Tx) ([]monitoredTx, error)
 	GetByBlock(ctx context.Context, fromBlock, toBlock *uint64, dbTx pgx.Tx) ([]monitoredTx, error)

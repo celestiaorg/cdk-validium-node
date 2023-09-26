@@ -130,7 +130,7 @@ CREATE TABLE state.proof
     input_prover VARCHAR,
     prover VARCHAR,
     generating BOOLEAN DEFAULT FALSE,
-    PRIMARY KEY (batch_num, batch_num_final)    
+    PRIMARY KEY (batch_num, batch_num_final)
 );
 
 CREATE TABLE IF NOT EXISTS state.sequences
@@ -162,5 +162,12 @@ CREATE TABLE state.debug
 (
     error_type  VARCHAR,
     timestamp timestamp,
-    payload VARCHAR  
+    payload VARCHAR
+);
+
+CREATE TABLE state.blobs
+(
+    batch_num BIGINT PRIMARY KEY,
+    height BIGINT,
+    commitment BYTEA
 );

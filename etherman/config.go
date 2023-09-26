@@ -14,4 +14,7 @@ type Config struct {
 	MultiGasProvider bool `mapstructure:"MultiGasProvider"`
 	// Configuration for use Etherscan as used as gas provider, basically it needs the API-KEY
 	Etherscan etherscan.Config
+
+	// Is the Validium a Celestium
+	IsCelestium bool
 }

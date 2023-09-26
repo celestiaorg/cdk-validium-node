@@ -35,8 +35,10 @@ PollMinAllowedGasPriceInterval = "15s"
 [Etherman]
 URL = "http://cdk-validium-mock-l1-network:8545"
 MultiGasProvider = false
+IsCelestium = true
 	[Etherscan]
 		ApiKey = ""
+
 
 [RPC]
 Host = "0.0.0.0"

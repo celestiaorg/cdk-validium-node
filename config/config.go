@@ -54,6 +54,12 @@ const (
 	FlagMaxAmount = "max-amount"
 	// FlagDocumentationFileType is the flag for the choose which file generate json-schema
 	FlagDocumentationFileType = "config-file"
+	// FlagDaRPC is the flag for the rpc used for DA
+	FlagDaRPC = "da-rpc"
+	// FlagNamespaceId is the flag for the namespace id used in Celestia
+	FlagNamespaceId = "namespace-id"
+	// FlagAuthToken is the flag for the auth token used in the Celestia node
+	FlagAuthToken = "auth-token"
 )
 
 /*
