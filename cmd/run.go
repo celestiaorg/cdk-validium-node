@@ -353,6 +353,8 @@ func newDataAvailability(c config.Config, st *state.State, etherman *etherman.Cl
 		if err != nil {
 			return nil, err
 		}
+	case string(dataavailability.Celestia):
+		// TODO load Celestia config
 	default:
 		return nil, fmt.Errorf("unexpected / unsupported DA protocol: %s", daProtocolName)
 	}
